@@ -128,7 +128,7 @@ export default function NewCoursePage() {
     }
 
     setIsOcrProcessing(true);
-    setOcrStage("Connecting to Gemini 3.6 Flash AI Engine...");
+    setOcrStage("Connecting to Gemini AI Engine...");
 
     try {
       setOcrStage("Extracting Past Questions & Rationales...");

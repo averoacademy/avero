@@ -2,6 +2,83 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import mammoth from "mammoth";
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function parseErrorMessage(error: any): string {
+  if (!error) return "Failed to process document with Gemini AI OCR.";
+  let msg = error?.message || String(error);
+
+  if (typeof msg === "string" && msg.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(msg);
+      if (parsed?.error?.message) {
+        msg = parsed.error.message;
+      }
+    } catch {
+      // ignore JSON parse failure
+    }
+  }
+
+  if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand")) {
+    return "The Gemini AI model is currently experiencing high demand. Please try again in a few moments.";
+  }
+
+  if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
+    return "AI rate limit reached. Please wait a moment before trying again.";
+  }
+
+  return msg;
+}
+
+async function generateGeminiContentWithFallback(ai: GoogleGenAI, promptContents: any[], config: any) {
+  // Order candidate models by stability and availability
+  const modelsToTry = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-3.6-flash",
+  ];
+
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Gemini OCR] Attempting model ${model} (attempt ${attempt}/${maxRetries})...`);
+        const response = await ai.models.generateContent({
+          model,
+          contents: promptContents,
+          config,
+        });
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        const errString = String(err?.message || err);
+        const isTransient =
+          errString.includes("503") ||
+          errString.includes("UNAVAILABLE") ||
+          errString.includes("high demand") ||
+          errString.includes("429") ||
+          errString.includes("RESOURCE_EXHAUSTED") ||
+          errString.includes("500");
+
+        console.warn(`[Gemini OCR] Model ${model} attempt ${attempt} (failed): ${errString}`);
+
+        if (isTransient && attempt < maxRetries) {
+          const delay = Math.pow(2, attempt - 1) * 1500; // 1.5s, 3s backoff
+          console.log(`[Gemini OCR] Waiting ${delay}ms before retrying ${model}...`);
+          await sleep(delay);
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -162,15 +239,11 @@ JSON format:
       ];
     }
 
-    // Call Gemini 3.6 Flash with systemInstruction in config, responseMimeType JSON & temperature 0.2 for max speed
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: promptContents,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
+    // Call Gemini with systemInstruction in config, responseMimeType JSON & temperature 0.2 with fallback models & retries
+    const response = await generateGeminiContentWithFallback(ai, promptContents, {
+      systemInstruction: systemPrompt,
+      responseMimeType: "application/json",
+      temperature: 0.2,
     });
 
     const responseText = response.text || "";
@@ -215,8 +288,9 @@ JSON format:
     });
   } catch (error: any) {
     console.error("Gemini OCR AI Error:", error);
+    const friendlyMessage = parseErrorMessage(error);
     return NextResponse.json(
-      { error: error?.message || "Failed to process document with Gemini AI OCR." },
+      { error: friendlyMessage },
       { status: 500 }
     );
   }
