@@ -1,33 +1,27 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+import fs from "fs";
 import path from "path";
 
-const EMAIL_USER = process.env.EMAIL_USER || "no-reply@avero.academy";
-const EMAIL_PASS = process.env.EMAIL_PASS;
-const EMAIL_HOST = process.env.EMAIL_HOST || "mail.privateemail.com";
-const EMAIL_PORT = Number(process.env.EMAIL_PORT || 465);
-const EMAIL_FROM = process.env.EMAIL_FROM || `"AVERO ACADEMY" <${EMAIL_USER}>`;
+const resend = new Resend(process.env.RESEND_API_KEY);
+const EMAIL_FROM = process.env.EMAIL_FROM || `"AVERO ACADEMY" <no-reply@avero.academy>`;
 
-// Configure Nodemailer transporter (Supports Namecheap Private Email or custom SMTP)
-const transporter = EMAIL_HOST.includes("gmail")
-  ? nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    })
-  : nodemailer.createTransport({
-      host: EMAIL_HOST,
-      port: EMAIL_PORT,
-      secure: EMAIL_PORT === 465,
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS,
-      },
-    });
-
-const logoAttachment = {
-  filename: "email-logo.jpeg",
-  path: path.join(process.cwd(), "public", "images", "email-logo.jpeg"),
-  cid: "avero-email-logo",
-};
+// Prepare logo attachment buffer safely if available
+function getLogoAttachment() {
+  try {
+    const logoPath = path.join(process.cwd(), "public", "images", "email-logo.jpeg");
+    if (fs.existsSync(logoPath)) {
+      return [
+        {
+          filename: "email-logo.jpeg",
+          content: fs.readFileSync(logoPath),
+        },
+      ];
+    }
+  } catch (e) {
+    console.warn("Could not load email logo image attachment:", e);
+  }
+  return undefined;
+}
 
 export async function sendWelcomeEmail({
   to,
@@ -47,7 +41,7 @@ export async function sendWelcomeEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #2866e1;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Nursing Council Exam Prep & Question Bank</p>
       </div>
 
@@ -98,25 +92,31 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch.");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch.");
     return {
+      id: "mock-" + Date.now(),
       messageId: "mock-" + Date.now(),
       accepted: [to],
       content: textContent,
     };
   }
 
-  const info = await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
 
-  return info;
+  if (error) {
+    console.error("Resend error (sendWelcomeEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
 }
 
 export async function sendPasswordResetEmail({
@@ -133,7 +133,7 @@ export async function sendPasswordResetEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #2866e1;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Password Reset Request</p>
       </div>
 
@@ -182,10 +182,11 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch for Password Reset.");
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch for Password Reset.");
     console.log(`[PASSWORD RESET MOCK LINK] ${resetUrl}`);
     return {
+      id: "mock-reset-" + Date.now(),
       messageId: "mock-reset-" + Date.now(),
       accepted: [to],
       content: textContent,
@@ -193,16 +194,21 @@ The AVERO ACADEMY Team
     };
   }
 
-  const info = await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
 
-  return info;
+  if (error) {
+    console.error("Resend error (sendPasswordResetEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
 }
 
 export async function sendDailyStudyReminderEmail({
@@ -221,7 +227,7 @@ export async function sendDailyStudyReminderEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #2866e1;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Daily Study Habit Reminder</p>
       </div>
 
@@ -265,26 +271,31 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch for Daily Reminder.");
-    console.log(`[STUDY REMINDER MOCK DISPATCH] Sent to ${to} for goal ${dailyQuestionGoal} questions.`);
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch for Daily Reminder.");
     return {
+      id: "mock-reminder-" + Date.now(),
       messageId: "mock-reminder-" + Date.now(),
       accepted: [to],
       content: textContent,
     };
   }
 
-  const info = await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
 
-  return info;
+  if (error) {
+    console.error("Resend error (sendDailyStudyReminderEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
 }
 
 export async function sendSubscriptionActivatedEmail({
@@ -317,7 +328,7 @@ export async function sendSubscriptionActivatedEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #2866e1;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Subscription Activation Notice</p>
       </div>
 
@@ -375,20 +386,26 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch for Subscription Activation.");
-    console.log(`[SUBSCRIPTION ACTIVATED MOCK EMAIL] Sent to ${to}`);
-    return { messageId: "mock-sub-active-" + Date.now(), accepted: [to], content: textContent };
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch for Subscription Activation.");
+    return { id: "mock-sub-active-" + Date.now(), messageId: "mock-sub-active-" + Date.now(), accepted: [to], content: textContent };
   }
 
-  return await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
+
+  if (error) {
+    console.error("Resend error (sendSubscriptionActivatedEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
 }
 
 export async function sendSubscriptionExpiringSoonEmail({
@@ -417,7 +434,7 @@ export async function sendSubscriptionExpiringSoonEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #eab308;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #854d0e; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Subscription Expiration Warning</p>
       </div>
 
@@ -460,20 +477,26 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch for Expiring Subscription.");
-    console.log(`[SUBSCRIPTION EXPIRING MOCK EMAIL] Sent to ${to}`);
-    return { messageId: "mock-sub-expiring-" + Date.now(), accepted: [to], content: textContent };
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch for Expiring Subscription.");
+    return { id: "mock-sub-expiring-" + Date.now(), messageId: "mock-sub-expiring-" + Date.now(), accepted: [to], content: textContent };
   }
 
-  return await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
+
+  if (error) {
+    console.error("Resend error (sendSubscriptionExpiringSoonEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
 }
 
 export async function sendSubscriptionExpiredEmail({
@@ -488,7 +511,7 @@ export async function sendSubscriptionExpiredEmail({
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
       <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #ef4444;">
-        <img src="cid:avero-email-logo" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
+        <img src="cid:email-logo.jpeg" alt="AVERO ACADEMY" style="max-width: 200px; height: auto; display: block; margin: 0 auto 12px auto;" />
         <p style="color: #991b1b; font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 4px 0 0 0;">Subscription Expired</p>
       </div>
 
@@ -538,19 +561,24 @@ Best regards,
 The AVERO ACADEMY Team
   `;
 
-  if (!EMAIL_USER || !EMAIL_PASS) {
-    console.warn("EMAIL_USER or EMAIL_PASS missing. Skipping actual SMTP email dispatch for Expired Subscription.");
-    console.log(`[SUBSCRIPTION EXPIRED MOCK EMAIL] Sent to ${to}`);
-    return { messageId: "mock-sub-expired-" + Date.now(), accepted: [to], content: textContent };
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY missing. Skipping actual Resend email dispatch for Expired Subscription.");
+    return { id: "mock-sub-expired-" + Date.now(), messageId: "mock-sub-expired-" + Date.now(), accepted: [to], content: textContent };
   }
 
-  return await transporter.sendMail({
+  const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
-    to,
+    to: [to],
     subject,
     text: textContent,
     html: htmlContent,
-    attachments: [logoAttachment],
+    attachments: getLogoAttachment(),
   });
-}
 
+  if (error) {
+    console.error("Resend error (sendSubscriptionExpiredEmail):", error);
+    throw new Error(error.message);
+  }
+
+  return { messageId: data?.id, accepted: [to], ...data };
+}

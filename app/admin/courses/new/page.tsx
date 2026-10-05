@@ -32,6 +32,7 @@ export default function NewCoursePage() {
   const [uploadedDocUrl, setUploadedDocUrl] = useState("");
   const [uploadedDocName, setUploadedDocName] = useState("");
   const [rawTextInput, setRawTextInput] = useState("");
+  const [aiProvider, setAiProvider] = useState<"gemini" | "openai">("gemini");
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [ocrStage, setOcrStage] = useState("");
 
@@ -128,7 +129,9 @@ export default function NewCoursePage() {
     }
 
     setIsOcrProcessing(true);
-    setOcrStage("Connecting to Gemini AI Engine...");
+    setOcrStage(
+      `Connecting to ${aiProvider === "openai" ? "ChatGPT (OpenAI)" : "Google Gemini"} Engine...`
+    );
 
     try {
       setOcrStage("Extracting Past Questions & Rationales...");
@@ -141,6 +144,7 @@ export default function NewCoursePage() {
           rawText: rawTextInput,
           isPractical: courseQuestionType === "practical",
           practicalTitle: practicalTitle || title,
+          provider: aiProvider,
         }),
       });
 
@@ -385,13 +389,47 @@ export default function NewCoursePage() {
       {/* OCR AI Document Upload Panel */}
       {mode === "ocr" && (
         <div className="bg-white border border-[#2866e1]/20 rounded-2xl p-4 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
-          <div className="flex items-center gap-2 text-[#2866e1] font-extrabold text-[11px] sm:text-xs mb-2">
-            <FileText className="w-4 h-4 shrink-0" />
-            <span>GEMINI 3.6 FLASH OCR — PAST QUESTION CONVERTER</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2 text-[#2866e1] font-extrabold text-[11px] sm:text-xs mb-1">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>
+                  {aiProvider === "openai"
+                    ? "CHATGPT (GPT-4O) OCR — PAST QUESTION CONVERTER"
+                    : "GEMINI 3.6 FLASH OCR — PAST QUESTION CONVERTER"}
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
+                Upload Past Question Papers for OCR AI Parsing
+              </h2>
+            </div>
+
+            {/* AI Provider Switcher */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-xl shrink-0">
+              <button
+                type="button"
+                onClick={() => setAiProvider("gemini")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  aiProvider === "gemini"
+                    ? "bg-[#2866e1] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                }`}
+              >
+                <span>Google Gemini</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiProvider("openai")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  aiProvider === "openai"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                }`}
+              >
+                <span>ChatGPT (OpenAI)</span>
+              </button>
+            </div>
           </div>
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">
-            Upload Past Question Papers for OCR AI Parsing
-          </h2>
           <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
@@ -569,12 +607,14 @@ export default function NewCoursePage() {
               {isOcrProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                  <span>{ocrStage || "Gemini AI Converting..."}</span>
+                  <span>{ocrStage || "AI Converting..."}</span>
                 </>
               ) : (
                 <>
                   <FileText className="w-4 h-4 shrink-0" />
-                  <span>Convert Past Questions with AI</span>
+                  <span>
+                    Convert with {aiProvider === "openai" ? "ChatGPT (OpenAI)" : "Google Gemini"}
+                  </span>
                 </>
               )}
             </button>
