@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GraduationCap,
   Award,
@@ -19,6 +20,9 @@ import {
   Bookmark,
   Calendar,
   Flame,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 interface IStats {
@@ -29,7 +33,9 @@ interface IStats {
   completedCoursesCount: number;
 }
 
-export default function StudentDashboardPage() {
+function StudentDashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [stats, setStats] = useState<IStats | null>(null);
   const [recentAttempts, setRecentAttempts] = useState<any[]>([]);
   const [recommendedCourses, setRecommendedCourses] = useState<any[]>([]);
@@ -38,6 +44,9 @@ export default function StudentDashboardPage() {
   const [flashcardsDueCount, setFlashcardsDueCount] = useState<number>(0);
   const [scheduleData, setScheduleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [paymentBanner, setPaymentBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -83,7 +92,41 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+
+    // Check for Paystack payment verification query param
+    const reference = searchParams.get("reference") || searchParams.get("trxref");
+    if (reference) {
+      setVerifyingPayment(true);
+      fetch(`/api/paystack/verify?reference=${encodeURIComponent(reference)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setPaymentBanner({
+              type: "success",
+              message: data.message || "Payment verified! Your Avero Pro subscription is now active.",
+            });
+            fetchDashboardData();
+          } else {
+            setPaymentBanner({
+              type: "error",
+              message: data.error || "Payment verification failed. If you were charged, please contact support.",
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Error verifying payment:", err);
+          setPaymentBanner({
+            type: "error",
+            message: "Failed to verify transaction. Please contact support if your payment was processed.",
+          });
+        })
+        .finally(() => {
+          setVerifyingPayment(false);
+          // Clean search params from URL
+          router.replace("/dashboard");
+        });
+    }
+  }, [searchParams, router]);
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -94,6 +137,39 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in">
+      {/* Payment Verification Banner */}
+      {verifyingPayment && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center gap-3 text-blue-900 text-xs font-semibold shadow-xs">
+          <Loader2 className="w-5 h-5 animate-spin text-[#2866e1] shrink-0" />
+          <span>Verifying your Paystack payment reference... Please wait.</span>
+        </div>
+      )}
+
+      {paymentBanner && (
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-semibold shadow-xs ${
+            paymentBanner.type === "success"
+              ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+              : "bg-rose-50 border border-rose-200 text-rose-900"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {paymentBanner.type === "success" ? (
+              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span>{paymentBanner.message}</span>
+          </div>
+          <button
+            onClick={() => setPaymentBanner(null)}
+            className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Welcome Hero Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1e40af] via-[#2866e1] to-[#3b82f6] p-6 md:p-8 text-white shadow-lg">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -447,3 +523,18 @@ export default function StudentDashboardPage() {
     </div>
   );
 }
+
+export default function StudentDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#2866e1]" />
+        </div>
+      }
+    >
+      <StudentDashboardContent />
+    </Suspense>
+  );
+}
+

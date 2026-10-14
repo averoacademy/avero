@@ -396,7 +396,7 @@ export default function NewCoursePage() {
                 <span>
                   {aiProvider === "openai"
                     ? "CHATGPT (GPT-4O) OCR — PAST QUESTION CONVERTER"
-                    : "GEMINI 3.6 FLASH OCR — PAST QUESTION CONVERTER"}
+                    : "GEMINI 3.8 FLASH OCR — PAST QUESTION CONVERTER"}
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-snug">

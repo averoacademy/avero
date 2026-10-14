@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import mammoth from "mammoth";
+import { getDocumentProxy, extractText } from "unpdf";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,8 +21,12 @@ function parseErrorMessage(error: any, provider: string = "AI"): string {
     }
   }
 
-  if (msg.includes("insufficient_quota")) {
-    return "OpenAI API quota exceeded. Please check your OpenAI account billing details.";
+  if (msg.includes("insufficient_quota") || msg.includes("exceeded your current quota")) {
+    return "OpenAI API quota exceeded. Please check your OpenAI account billing details and credit balance at platform.openai.com.";
+  }
+
+  if (msg.includes("Incorrect API key") || msg.includes("invalid_api_key") || msg.includes("401")) {
+    return `Invalid ${provider} API key. Please verify your API key in your server environment variables.`;
   }
 
   if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand")) {
@@ -37,12 +42,12 @@ function parseErrorMessage(error: any, provider: string = "AI"): string {
 
 async function generateGeminiContentWithFallback(ai: GoogleGenAI, promptContents: any[], config: any) {
   const modelsToTry = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.8-pro",
     "gemini-3.6-flash",
   ];
 
+  let primaryError: any = null;
   let lastError: any = null;
 
   for (const model of modelsToTry) {
@@ -59,6 +64,16 @@ async function generateGeminiContentWithFallback(ai: GoogleGenAI, promptContents
       } catch (err: any) {
         lastError = err;
         const errString = String(err?.message || err);
+        const isNotFound =
+          errString.includes("404") ||
+          errString.includes("NOT_FOUND") ||
+          errString.includes("no longer available") ||
+          errString.includes("not found");
+
+        if (!primaryError && !isNotFound) {
+          primaryError = err;
+        }
+
         const isTransient =
           errString.includes("503") ||
           errString.includes("UNAVAILABLE") ||
@@ -80,11 +95,13 @@ async function generateGeminiContentWithFallback(ai: GoogleGenAI, promptContents
     }
   }
 
-  throw lastError;
+  throw primaryError || lastError;
 }
 
 async function generateOpenAIContentWithFallback(openai: OpenAI, messages: any[]) {
-  const modelsToTry = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"];
+  // Use modern multimodal models that support JSON mode and vision
+  const modelsToTry = ["gpt-4o", "gpt-4o-mini"];
+  let primaryError: any = null;
   let lastError: any = null;
 
   for (const model of modelsToTry) {
@@ -101,9 +118,31 @@ async function generateOpenAIContentWithFallback(openai: OpenAI, messages: any[]
         return completion.choices[0]?.message?.content || "";
       } catch (err: any) {
         lastError = err;
+        if (!primaryError) primaryError = err;
         const errString = String(err?.message || err);
         console.warn(`[OpenAI OCR] Model ${model} attempt ${attempt} (failed): ${errString}`);
-        if (attempt < maxRetries) {
+
+        // If it's a non-transient auth/billing error, abort immediately
+        if (
+          errString.includes("insufficient_quota") ||
+          errString.includes("quota") ||
+          errString.includes("Incorrect API key") ||
+          errString.includes("invalid_api_key") ||
+          err?.status === 401 ||
+          err?.status === 403
+        ) {
+          throw err;
+        }
+
+        const isTransient =
+          errString.includes("503") ||
+          errString.includes("429") ||
+          errString.includes("500") ||
+          err?.status === 500 ||
+          err?.status === 503 ||
+          err?.status === 429;
+
+        if (isTransient && attempt < maxRetries) {
           await sleep(1500);
         } else {
           break;
@@ -112,7 +151,7 @@ async function generateOpenAIContentWithFallback(openai: OpenAI, messages: any[]
     }
   }
 
-  throw lastError;
+  throw primaryError || lastError;
 }
 
 export async function POST(request: Request) {
@@ -180,7 +219,7 @@ JSON format:
       if (documentUrl) {
         try {
           const fileRes = await fetch(documentUrl);
-          const contentTypeHeader = fileRes.headers.get("content-type") || "";
+          const contentTypeHeader = (fileRes.headers.get("content-type") || "").toLowerCase();
           const arrayBuffer = await fileRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
@@ -190,6 +229,13 @@ JSON format:
             buffer[1] === 0x4b &&
             buffer[2] === 0x03 &&
             buffer[3] === 0x04;
+
+          const isPdfHeader =
+            buffer.length >= 4 &&
+            buffer[0] === 0x25 &&
+            buffer[1] === 0x50 &&
+            buffer[2] === 0x44 &&
+            buffer[3] === 0x46;
 
           const isPngHeader =
             buffer.length >= 4 &&
@@ -215,6 +261,21 @@ JSON format:
             documentUrl.match(/\.(docx?)$/i) ||
             fileName?.match(/\.(docx?)$/i);
 
+          const isPdf =
+            isPdfHeader ||
+            contentTypeHeader.includes("pdf") ||
+            fileType?.includes("pdf") ||
+            documentUrl.match(/\.pdf$/i) ||
+            fileName?.match(/\.pdf$/i);
+
+          const isImage =
+            isPngHeader ||
+            isJpegHeader ||
+            contentTypeHeader.includes("image") ||
+            fileType?.includes("image") ||
+            documentUrl.match(/\.(png|jpe?g|webp)$/i) ||
+            fileName?.match(/\.(png|jpe?g|webp)$/i);
+
           if (isDocx) {
             try {
               const result = await mammoth.extractRawText({ buffer });
@@ -223,11 +284,44 @@ JSON format:
               const rawTxt = buffer.toString("utf-8");
               userContent = `Extract past questions JSON from this document text:\n\n${rawTxt}`;
             }
-          } else if (isPngHeader || isJpegHeader || contentTypeHeader.includes("image") || fileType?.includes("image") || documentUrl.match(/\.(png|jpe?g|webp)$/i) || fileName?.match(/\.(png|jpe?g|webp)$/i)) {
+          } else if (isPdf) {
+            let extractedPdfText = "";
+            try {
+              const uint8Array = new Uint8Array(buffer);
+              const pdf = await getDocumentProxy(uint8Array);
+              const { text } = await extractText(pdf, { mergePages: true });
+              extractedPdfText = (text || "").trim();
+            } catch (pdfErr) {
+              console.warn("[OpenAI OCR] unpdf extraction error:", pdfErr);
+            }
+
+            if (extractedPdfText.length > 50) {
+              userContent = `Extract past questions JSON from this PDF document text (do NOT edit, change, or summarize rationales; extract them exact and verbatim):\n\n${extractedPdfText}`;
+            } else {
+              // Scanned PDF fallback: pass PDF file directly to vision-capable model
+              const base64Data = buffer.toString("base64");
+              userContent = [
+                {
+                  type: "text",
+                  text: "Extract all past exam questions, multiple-choice options, correct answers, and exact verbatim rationales into JSON format:",
+                },
+                {
+                  type: "file",
+                  file: {
+                    filename: fileName || "document.pdf",
+                    file_data: `data:application/pdf;base64,${base64Data}`,
+                  },
+                },
+              ];
+            }
+          } else if (isImage) {
             const base64Data = buffer.toString("base64");
             const mimeType = isPngHeader ? "image/png" : isJpegHeader ? "image/jpeg" : fileType || "image/jpeg";
             userContent = [
-              { type: "text", text: "Extract all past exam questions, multiple-choice options, correct answers, and exact verbatim rationales into JSON format:" },
+              {
+                type: "text",
+                text: "Extract all past exam questions, multiple-choice options, correct answers, and exact verbatim rationales into JSON format:",
+              },
               {
                 type: "image_url",
                 image_url: {
@@ -236,7 +330,6 @@ JSON format:
               },
             ];
           } else {
-            // Plain text or PDF text fallback
             const txt = buffer.toString("utf-8");
             userContent = `Extract past questions JSON from this document content:\n\n${txt}`;
           }
@@ -271,7 +364,7 @@ JSON format:
       if (documentUrl) {
         try {
           const fileRes = await fetch(documentUrl);
-          const contentTypeHeader = fileRes.headers.get("content-type") || "";
+          const contentTypeHeader = (fileRes.headers.get("content-type") || "").toLowerCase();
           const arrayBuffer = await fileRes.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
@@ -313,6 +406,21 @@ JSON format:
             documentUrl.match(/\.(docx?)$/i) ||
             fileName?.match(/\.(docx?)$/i);
 
+          const isPdf =
+            isPdfHeader ||
+            contentTypeHeader.includes("pdf") ||
+            fileType?.includes("pdf") ||
+            documentUrl.match(/\.pdf$/i) ||
+            fileName?.match(/\.pdf$/i);
+
+          const isImage =
+            isPngHeader ||
+            isJpegHeader ||
+            contentTypeHeader.includes("image") ||
+            fileType?.includes("image") ||
+            documentUrl.match(/\.(png|jpe?g|webp)$/i) ||
+            fileName?.match(/\.(png|jpe?g|webp)$/i);
+
           if (isDocx) {
             try {
               const result = await mammoth.extractRawText({ buffer });
@@ -325,18 +433,34 @@ JSON format:
                 `Extract past questions JSON from this document text:\n\n${rawTxt}`,
               ];
             }
-          } else if (isPdfHeader || contentTypeHeader.includes("pdf") || fileType?.includes("pdf") || documentUrl.match(/\.pdf$/i) || fileName?.match(/\.pdf$/i)) {
-            const base64Data = buffer.toString("base64");
-            promptContents = [
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: base64Data,
+          } else if (isPdf) {
+            let extractedPdfText = "";
+            try {
+              const uint8Array = new Uint8Array(buffer);
+              const pdf = await getDocumentProxy(uint8Array);
+              const { text } = await extractText(pdf, { mergePages: true });
+              extractedPdfText = (text || "").trim();
+            } catch (pdfErr) {
+              console.warn("[Gemini OCR] unpdf extraction error:", pdfErr);
+            }
+
+            if (extractedPdfText.length > 50) {
+              promptContents = [
+                `Extract past questions JSON from this PDF document text (do NOT edit, change, or summarize rationales; extract them exact and verbatim):\n\n${extractedPdfText}`,
+              ];
+            } else {
+              const base64Data = buffer.toString("base64");
+              promptContents = [
+                {
+                  inlineData: {
+                    mimeType: "application/pdf",
+                    data: base64Data,
+                  },
                 },
-              },
-              "Extract all past exam questions, multiple-choice options, correct answers, and exact verbatim rationales into JSON format:",
-            ];
-          } else if (isPngHeader || isJpegHeader || contentTypeHeader.includes("image") || fileType?.includes("image") || documentUrl.match(/\.(png|jpe?g|webp)$/i) || fileName?.match(/\.(png|jpe?g|webp)$/i)) {
+                "Extract all past exam questions, multiple-choice options, correct answers, and exact verbatim rationales into JSON format:",
+              ];
+            }
+          } else if (isImage) {
             const base64Data = buffer.toString("base64");
             const mimeType = isPngHeader ? "image/png" : isJpegHeader ? "image/jpeg" : fileType || "image/jpeg";
             promptContents = [
