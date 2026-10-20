@@ -30,6 +30,7 @@ export interface IUser extends Document {
   lastExpiringNoticeSentDate?: Date;
   lastExpiredNoticeSentDate?: Date;
   currentSessionId?: string;
+  expoPushToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,6 +151,10 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Date,
     },
     currentSessionId: {
+      type: String,
+      default: "",
+    },
+    expoPushToken: {
       type: String,
       default: "",
     },

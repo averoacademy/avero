@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       {
         success: true,
         message: "Login successful.",
+        token,
         user: {
           id: user._id,
           fullName: user.fullName,

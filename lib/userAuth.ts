@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import User, { IUser } from "@/models/User";
@@ -29,7 +29,16 @@ export function verifyUserToken(token: string): IUserJwtPayload | null {
 export async function getUserFromSession(): Promise<IUser | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(USER_COOKIE_NAME)?.value;
+    let token = cookieStore.get(USER_COOKIE_NAME)?.value;
+
+    if (!token) {
+      const headerList = await headers();
+      const authHeader = headerList.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) return null;
 
     const decoded = verifyUserToken(token);

@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       {
         success: true,
         message: "User saved to MongoDB and welcome email sent.",
+        token,
         user: {
           id: user._id,
           fullName: user.fullName,
