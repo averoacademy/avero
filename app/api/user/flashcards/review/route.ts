@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserFromSession } from "@/lib/userAuth";
 import { connectToDatabase } from "@/lib/mongodb";
 import FlashcardProgress from "@/models/FlashcardProgress";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function POST(request: Request) {
   try {
@@ -74,8 +75,11 @@ export async function POST(request: Request) {
     card.lastReviewedAt = new Date();
     await card.save();
 
+    const streak = await getAndUpdateUserStreak(sessionUser._id);
+
     return NextResponse.json({
       success: true,
+      currentStreakDays: streak,
       card: {
         id: card._id,
         repetitions,

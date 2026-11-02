@@ -29,15 +29,19 @@ import {
   CreditCard,
   Mail,
   Camera,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, updateUserAvatar } = useAuth();
+  const { user, logout, updateUserAvatar, refreshUser } = useAuth();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  React.useEffect(() => {
+    refreshUser().catch(() => {});
+  }, [refreshUser]);
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out of Avero Academy?", [
@@ -124,23 +128,43 @@ export default function ProfileScreen() {
 
         setUploadingImage(true);
 
-        // 1. Immediately update and persist locally so image displays on Profile and Dashboard instantly
-        await updateUserAvatar(localUri);
-
-        // 2. Sync with backend API in background
         try {
-          const res = await api.post<any>("/api/user/avatar", {
-            avatar: base64Data,
-          });
+          // 1. Immediately update and persist locally so image displays on Profile and Dashboard instantly
+          await updateUserAvatar(localUri);
 
-          if (res?.success && res.avatarUrl) {
-            await updateUserAvatar(res.avatarUrl);
+          // 2. Persist to backend database (PUT /api/user/profile is supported on both live production and new deployments)
+          let serverAvatarUrl = "";
+          try {
+            const res = await api.put<any>("/api/user/profile", {
+              avatar: base64Data,
+            });
+            if (res?.success && res.user?.avatar) {
+              serverAvatarUrl = res.user.avatar;
+            }
+          } catch {
+            // Fallback to /api/user/avatar if available
+            try {
+              const res = await api.post<any>("/api/user/avatar", {
+                avatar: base64Data,
+              });
+              if (res?.success && (res.avatarUrl || res.user?.avatar)) {
+                serverAvatarUrl = res.avatarUrl || res.user?.avatar;
+              }
+            } catch (fallbackErr) {
+              console.warn("Avatar fallback sync error:", fallbackErr);
+            }
           }
-        } catch (syncErr) {
-          console.log("Remote backend avatar sync pending cloud deployment:", syncErr);
-        }
 
-        Alert.alert("Success 🎉", "Profile picture updated successfully!");
+          if (serverAvatarUrl) {
+            await updateUserAvatar(serverAvatarUrl);
+          }
+          Alert.alert("Success 🎉", "Profile picture updated successfully!");
+        } catch (syncErr: any) {
+          console.error("Avatar upload backend error:", syncErr);
+          Alert.alert("Upload Notice", syncErr?.message || "Profile picture saved locally.");
+        } finally {
+          setUploadingImage(false);
+        }
       }
     } catch (err: any) {
       console.warn("Avatar upload error:", err);

@@ -5,6 +5,7 @@ import User from "@/models/User";
 import ExamAttempt from "@/models/ExamAttempt";
 import { sendDailyStudyReminderEmail } from "@/lib/email";
 import { isProUser } from "@/lib/subscription";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
   try {
@@ -13,18 +14,15 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isProUser(sessionUser)) {
-      return NextResponse.json(
-        { error: "The daily study schedule planner is exclusive to Pro members.", code: "PRO_REQUIRED" },
-        { status: 403 }
-      );
-    }
+    const isPro = isProUser(sessionUser);
 
     await connectToDatabase();
     const user = await User.findById(sessionUser._id);
     if (!user) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
+
+    const streak = await getAndUpdateUserStreak(sessionUser._id);
 
     // Calculate questions completed today
     const startOfToday = new Date();
@@ -45,13 +43,14 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       schedule: {
+        isPro,
         dailyQuestionGoal: user.dailyQuestionGoal ?? 20,
         dailyStudyTimeMinutes: user.dailyStudyTimeMinutes ?? 30,
         preferredStudyTime: user.preferredStudyTime ?? "20:00",
         emailRemindersEnabled: user.emailRemindersEnabled !== false,
         pushRemindersEnabled: user.pushRemindersEnabled !== false,
         reminderLeadTimeMinutes: user.reminderLeadTimeMinutes ?? 0,
-        currentStreakDays: user.currentStreakDays || (todayAttempts.length > 0 ? 1 : 0),
+        currentStreakDays: streak,
         questionsCompletedToday,
         timeSpentTodayMinutes: Math.round(timeSpentTodaySeconds / 60),
       },

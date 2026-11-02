@@ -24,6 +24,8 @@ export async function GET() {
         gradYear: user.gradYear,
         isOnboarded: user.isOnboarded,
         avatar: user.avatar || "",
+        currentStreakDays: user.currentStreakDays || 0,
+        dailyQuestionGoal: user.dailyQuestionGoal ?? 20,
         isPro: isProUser(user),
       },
     });
@@ -74,6 +76,9 @@ export async function PUT(request: Request) {
         gradYear: dbUser.gradYear,
         isOnboarded: dbUser.isOnboarded,
         avatar: dbUser.avatar || "",
+        currentStreakDays: dbUser.currentStreakDays || 0,
+        dailyQuestionGoal: dbUser.dailyQuestionGoal ?? 20,
+        isPro: isProUser(dbUser),
       },
     });
   } catch (error: any) {

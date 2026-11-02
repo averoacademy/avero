@@ -21,7 +21,7 @@ import {
   CheckCircle,
   AlertTriangle,
   X,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function ExamRoomScreen() {
   const router = useRouter();

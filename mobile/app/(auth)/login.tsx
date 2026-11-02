@@ -14,7 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { Colors } from "@/constants/theme";
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react-native";
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "@/components/Icons";
 
 export default function LoginScreen() {
   const router = useRouter();

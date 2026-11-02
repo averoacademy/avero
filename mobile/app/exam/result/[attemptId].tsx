@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function ExamResultScreen() {
   const router = useRouter();

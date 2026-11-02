@@ -5,6 +5,7 @@ import ExamAttempt, { ISubjectBreakdown } from "@/models/ExamAttempt";
 import Course from "@/models/Course";
 import Category from "@/models/Category";
 import User from "@/models/User";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function POST(request: Request) {
   try {
@@ -88,10 +89,13 @@ export async function POST(request: Request) {
       subjectBreakdown,
     });
 
+    const streak = await getAndUpdateUserStreak(user._id);
+
     return NextResponse.json({
       success: true,
       message: "Mock exam submitted successfully.",
       attemptId: attempt._id,
+      currentStreakDays: streak,
       score,
       correctCount,
       totalQuestions,

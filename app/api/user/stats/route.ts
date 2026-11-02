@@ -5,6 +5,7 @@ import ExamAttempt from "@/models/ExamAttempt";
 import Announcement from "@/models/Announcement";
 import Course from "@/models/Course";
 import Category from "@/models/Category";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
   try {
@@ -14,6 +15,8 @@ export async function GET() {
     }
 
     await connectToDatabase();
+
+    const streak = await getAndUpdateUserStreak(user._id);
 
     // Fetch user exam attempts
     const attempts = await ExamAttempt.find({ userId: user._id })
@@ -51,12 +54,14 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      currentStreakDays: streak,
       stats: {
         totalAttempts,
         passedAttempts,
         averageScore,
         totalTimeSpentSeconds,
         completedCoursesCount,
+        currentStreakDays: streak,
       },
       recentAttempts: attempts.slice(0, 5),
       recommendedCourses,

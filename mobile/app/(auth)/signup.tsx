@@ -14,7 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { Colors } from "@/constants/theme";
-import { User, Mail, Lock, Building2, Calendar, ArrowRight, Eye, EyeOff } from "lucide-react-native";
+import { User, Mail, Lock, Building2, Calendar, ArrowRight, Eye, EyeOff } from "@/components/Icons";
 
 const STUDENT_TYPES = [
   "General Nursing",

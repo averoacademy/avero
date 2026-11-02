@@ -20,7 +20,7 @@ import {
   ChevronRight,
   Filter,
   Sparkles,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function CoursesScreen() {
   const router = useRouter();

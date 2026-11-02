@@ -23,7 +23,7 @@ import {
   Flame,
   ChevronRight,
   BookOpen,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 const { width } = Dimensions.get("window");
 

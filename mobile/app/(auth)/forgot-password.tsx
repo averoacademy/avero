@@ -13,7 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { api } from "@/lib/api";
 import { Colors } from "@/constants/theme";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react-native";
+import { Mail, ArrowLeft, CheckCircle2 } from "@/components/Icons";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();

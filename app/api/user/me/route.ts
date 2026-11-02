@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromSession } from "@/lib/userAuth";
 import { isProUser } from "@/lib/subscription";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
   try {
@@ -11,6 +12,8 @@ export async function GET() {
         { status: 401 }
       );
     }
+
+    const streak = await getAndUpdateUserStreak(user._id);
 
     return NextResponse.json({
       success: true,
@@ -28,6 +31,8 @@ export async function GET() {
         subscriptionExpiresAt: user.subscriptionExpiresAt || null,
         isPro: isProUser(user),
         avatar: user.avatar || "",
+        currentStreakDays: streak,
+        dailyQuestionGoal: user.dailyQuestionGoal ?? 20,
         createdAt: user.createdAt,
       },
     });

@@ -24,7 +24,7 @@ import {
   ArrowRight,
   ShieldCheck,
   History,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function MockExamScreen() {
   const router = useRouter();

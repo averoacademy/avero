@@ -20,7 +20,7 @@ import {
   CreditCard,
   ShieldCheck,
   AlertCircle,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 WebBrowser.maybeCompleteAuthSession();
 

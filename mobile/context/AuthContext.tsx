@@ -57,11 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Verify session validity with backend
         try {
-          const res = await api.get<{ success: boolean; user: StudentUser }>("/api/user/me");
+          const [res, schedRes] = await Promise.all([
+            api.get<{ success: boolean; user: StudentUser }>("/api/user/me"),
+            api.get<{ success: boolean; schedule: { currentStreakDays?: number } }>("/api/user/schedule").catch(() => null),
+          ]);
           if (res?.success && res.user) {
             const merged: StudentUser = {
               ...res.user,
               avatar: res.user.avatar || cachedProfile?.avatar || "",
+              currentStreakDays:
+                schedRes?.schedule?.currentStreakDays ??
+                res.user.currentStreakDays ??
+                cachedProfile?.currentStreakDays ??
+                0,
             };
             setUser(merged);
             await saveUserProfile(merged);
@@ -90,9 +98,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post("/api/login", { email, password });
     if (res?.token && res?.user) {
       await saveToken(res.token);
-      await saveUserProfile(res.user);
+      let userData: StudentUser = res.user;
+
+      // Sync with /api/user/me and /api/user/schedule (which holds the live streak on production)
+      try {
+        const [meRes, schedRes] = await Promise.all([
+          api.get<{ success: boolean; user: StudentUser }>("/api/user/me", {
+            headers: { Authorization: `Bearer ${res.token}` },
+          }).catch(() => null),
+          api.get<{ success: boolean; schedule: { currentStreakDays?: number } }>("/api/user/schedule", {
+            headers: { Authorization: `Bearer ${res.token}` },
+          }).catch(() => null),
+        ]);
+
+        if (meRes?.success && meRes.user) {
+          userData = {
+            ...userData,
+            ...meRes.user,
+            avatar: meRes.user.avatar || userData.avatar || "",
+            currentStreakDays:
+              schedRes?.schedule?.currentStreakDays ??
+              meRes.user.currentStreakDays ??
+              userData.currentStreakDays ??
+              0,
+          };
+        } else if (schedRes?.schedule?.currentStreakDays !== undefined) {
+          userData.currentStreakDays = schedRes.schedule.currentStreakDays;
+        }
+      } catch (meErr) {
+        console.warn("Post-login sync from /api/user/me note:", meErr);
+      }
+
+      await saveUserProfile(userData);
       setToken(res.token);
-      setUser(res.user);
+      setUser(userData);
       registerForPushNotificationsAsync().catch(() => {});
     } else {
       throw new Error(res?.error || "Login response did not return an authentication token.");
@@ -131,11 +170,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const res = await api.get<{ success: boolean; user: StudentUser }>("/api/user/me");
+      const [res, schedRes] = await Promise.all([
+        api.get<{ success: boolean; user: StudentUser }>("/api/user/me"),
+        api.get<{ success: boolean; schedule: { currentStreakDays?: number } }>("/api/user/schedule").catch(() => null),
+      ]);
       if (res?.success && res.user) {
         const merged: StudentUser = {
           ...res.user,
           avatar: res.user.avatar || user?.avatar || "",
+          currentStreakDays:
+            schedRes?.schedule?.currentStreakDays ??
+            res.user.currentStreakDays ??
+            user?.currentStreakDays ??
+            0,
         };
         setUser(merged);
         await saveUserProfile(merged);

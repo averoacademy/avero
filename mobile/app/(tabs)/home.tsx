@@ -25,11 +25,11 @@ import {
   ChevronRight,
   Target,
   Megaphone,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [stats, setStats] = useState<any>(null);
   const [recentAttempts, setRecentAttempts] = useState<any[]>([]);
@@ -40,13 +40,29 @@ export default function HomeScreen() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [statsRes, flashcardsRes] = await Promise.all([
+      const [statsRes, flashcardsRes, scheduleRes] = await Promise.all([
         api.get<any>("/api/user/stats").catch(() => null),
         api.get<any>("/api/user/flashcards?mode=due").catch(() => null),
+        api.get<any>("/api/user/schedule").catch(() => null),
+        refreshUser().catch(() => null),
       ]);
 
-      if (statsRes?.stats) {
-        setStats(statsRes.stats);
+      const streakCount =
+        scheduleRes?.schedule?.currentStreakDays ??
+        statsRes?.currentStreakDays ??
+        statsRes?.stats?.currentStreakDays;
+
+      if (statsRes?.stats || streakCount !== undefined) {
+        setStats({
+          ...(statsRes?.stats || {}),
+          currentStreakDays:
+            streakCount ??
+            user?.currentStreakDays ??
+            0,
+        });
+      }
+
+      if (statsRes) {
         setRecentAttempts(statsRes.recentAttempts || []);
         setAnnouncements(statsRes.announcements || []);
       }
@@ -60,7 +76,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshUser, user?.currentStreakDays]);
 
   React.useEffect(() => {
     loadDashboardData();
@@ -72,7 +88,10 @@ export default function HomeScreen() {
   };
 
   const firstName = user?.fullName?.split(" ")[0] || "Student";
-  const streak = user?.currentStreakDays || 0;
+  const streak =
+    stats?.currentStreakDays ??
+    user?.currentStreakDays ??
+    0;
 
   return (
     <ScrollView

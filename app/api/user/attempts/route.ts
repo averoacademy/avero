@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromSession } from "@/lib/userAuth";
 import ExamAttempt from "@/models/ExamAttempt";
 import Course from "@/models/Course";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET(request: Request) {
   try {
@@ -82,10 +83,13 @@ export async function POST(request: Request) {
       answers: sanitizedAnswers,
     });
 
+    const streak = await getAndUpdateUserStreak(user._id);
+
     return NextResponse.json({
       success: true,
       message: "Attempt submitted successfully.",
       attemptId: attempt._id,
+      currentStreakDays: streak,
       attempt: {
         id: attempt._id,
         score,

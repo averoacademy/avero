@@ -8,7 +8,7 @@ import {
   GraduationCap,
   Brain,
   User,
-} from "lucide-react-native";
+} from "@/components/Icons";
 
 export default function TabsLayout() {
   return (

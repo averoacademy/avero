@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { connectToDatabase } from "@/lib/mongodb";
 import User from "@/models/User";
 import { signUserToken, USER_COOKIE_NAME } from "@/lib/userAuth";
+import { isProUser } from "@/lib/subscription";
+import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function POST(request: Request) {
   try {
@@ -49,6 +51,8 @@ export async function POST(request: Request) {
     user.currentSessionId = sessionId;
     await user.save();
 
+    const streak = await getAndUpdateUserStreak(user._id);
+
     const token = signUserToken({
       userId: (user._id as any).toString(),
       email: user.email,
@@ -70,6 +74,11 @@ export async function POST(request: Request) {
           university: user.university,
           gradYear: user.gradYear,
           isOnboarded: user.isOnboarded,
+          avatar: user.avatar || "",
+          currentStreakDays: streak,
+          isPro: isProUser(user),
+          dailyQuestionGoal: user.dailyQuestionGoal ?? 20,
+          subscriptionPlan: user.subscriptionPlan || "free",
         },
       },
       { status: 200 }

@@ -40,6 +40,7 @@ export default function StudentDashboardLayout({
     studentType?: string;
     university?: string;
     isPro?: boolean;
+    avatar?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -180,18 +181,27 @@ export default function StudentDashboardLayout({
 
         {/* Student Profile Footer & Logout */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
-          <div className="mb-3 px-2">
-            <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
-              <span className="truncate">{studentUser?.fullName || "Student Account"}</span>
-              {studentUser?.isPro && (
-                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-500 text-white rounded-full text-[9px] font-extrabold uppercase tracking-wide shadow-xs shrink-0">
-                  <Zap className="w-2.5 h-2.5 fill-white" /> PRO
-                </span>
-              )}
+          <div className="mb-3 px-2 flex items-center gap-2.5">
+            {studentUser?.avatar ? (
+              <img
+                src={studentUser.avatar}
+                alt={studentUser.fullName}
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+              />
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+                <span className="truncate">{studentUser?.fullName || "Student Account"}</span>
+                {studentUser?.isPro && (
+                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber-500 text-white rounded-full text-[9px] font-extrabold uppercase tracking-wide shadow-xs shrink-0">
+                    <Zap className="w-2.5 h-2.5 fill-white" /> PRO
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 truncate">
+                {studentUser?.studentType || "Healthcare Candidate"}
+              </p>
             </div>
-            <p className="text-[11px] text-slate-500 truncate">
-              {studentUser?.studentType || "Healthcare Candidate"}
-            </p>
           </div>
 
           {!studentUser?.isPro && (
@@ -229,6 +239,13 @@ export default function StudentDashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
+            {studentUser?.avatar && (
+              <img
+                src={studentUser.avatar}
+                alt={studentUser.fullName}
+                className="w-7 h-7 rounded-full object-cover border border-slate-200"
+              />
+            )}
             {studentUser?.university && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-[#2866e1]/10 border border-[#2866e1]/20 rounded-full text-xs text-[#2866e1] font-semibold">
                 <UserCheck className="w-3.5 h-3.5" />

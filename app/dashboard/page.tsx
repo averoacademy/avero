@@ -341,7 +341,7 @@ function StudentDashboardContent() {
               </span>
             </div>
             <span className="text-xs font-black text-amber-600 flex items-center gap-1 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-              🔥 {scheduleData?.currentStreakDays || 0} Day Streak
+              🔥 {scheduleData?.currentStreakDays ?? (stats as any)?.currentStreakDays ?? user?.currentStreakDays ?? 0} Day Streak
             </span>
           </div>
 
