@@ -104,8 +104,18 @@ export async function calculateUserStreak(userId: mongoose.Types.ObjectId | stri
  */
 export async function getAndUpdateUserStreak(userId: mongoose.Types.ObjectId | string): Promise<number> {
   try {
-    const streak = await calculateUserStreak(userId);
     await connectToDatabase();
+    // Cache streak check: if user was already updated within the last 15 minutes today, return immediately
+    const user = await User.findById(userId).select("currentStreakDays lastStudyDate updatedAt").lean();
+    if (user) {
+      const isUpdatedToday = user.lastStudyDate && new Date(user.lastStudyDate).toDateString() === new Date().toDateString();
+      const recentlySynced = user.updatedAt && (Date.now() - new Date(user.updatedAt).getTime() < 15 * 60 * 1000);
+      if (isUpdatedToday && recentlySynced && user.currentStreakDays !== undefined) {
+        return user.currentStreakDays;
+      }
+    }
+
+    const streak = await calculateUserStreak(userId);
     await User.findByIdAndUpdate(userId, {
       currentStreakDays: streak,
       ...(streak > 0 ? { lastStudyDate: new Date() } : {}),

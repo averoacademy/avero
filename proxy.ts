@@ -5,6 +5,7 @@ import { USER_COOKIE_NAME } from "@/lib/userAuth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  console.log(`🌐 [PROXY] ${request.method} ${pathname}`);
   const adminToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
   const cookieUserToken = request.cookies.get(USER_COOKIE_NAME)?.value;
   const authHeader = request.headers.get("authorization");

@@ -8,15 +8,17 @@ import Category from "@/models/Category";
 import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
+  const t0 = performance.now();
   try {
     const user = await getUserFromSession();
     if (!user) {
+      console.log(`⏱️ [API DONE] GET /api/user/stats -> 401 in ${(performance.now() - t0).toFixed(1)}ms`);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await connectToDatabase();
 
-    const streak = await getAndUpdateUserStreak(user._id);
+    const streak = user.currentStreakDays ?? 0;
 
     // Fetch user exam attempts
     const attempts = await ExamAttempt.find({ userId: user._id })
@@ -53,6 +55,7 @@ export async function GET() {
       .limit(3)
       .lean();
 
+    console.log(`⏱️ [API DONE] GET /api/user/stats -> 200 in ${(performance.now() - t0).toFixed(1)}ms`);
     return NextResponse.json({
       success: true,
       currentStreakDays: streak,

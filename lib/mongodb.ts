@@ -107,6 +107,9 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
     return cached.conn;
   }
 
+  const t0 = performance.now();
+  console.log("⏱️ [MONGODB] Connecting to database...");
+
   if (!cached.promise || (cached.conn && cached.conn.connection.readyState !== 1)) {
     const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
@@ -123,6 +126,7 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
 
   try {
     cached.conn = await cached.promise;
+    console.log(`✅ [MONGODB] Connected in ${(performance.now() - t0).toFixed(1)}ms`);
   } catch (e) {
     cached.promise = null;
     cached.conn = null;

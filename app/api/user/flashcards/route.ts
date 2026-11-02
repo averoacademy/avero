@@ -6,9 +6,11 @@ import Course from "@/models/Course";
 import { isProUser } from "@/lib/subscription";
 
 export async function GET(request: Request) {
+  const t0 = performance.now();
   try {
     const sessionUser = await getUserFromSession();
     if (!sessionUser) {
+      console.log(`⏱️ [API DONE] GET /api/user/flashcards -> 401 in ${(performance.now() - t0).toFixed(1)}ms`);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
         userId: sessionUser._id,
         nextReviewDate: { $lte: new Date() },
       });
+      console.log(`⏱️ [API DONE] GET /api/user/flashcards (summary) -> 200 in ${(performance.now() - t0).toFixed(1)}ms`);
       return NextResponse.json({
         success: true,
         cards: [],

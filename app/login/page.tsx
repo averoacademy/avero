@@ -35,6 +35,8 @@ function LoginForm() {
     e.preventDefault();
     if (!email) return;
 
+    const t0 = performance.now();
+    console.log("🚀 [WEB LOGIN] Submitting login...");
     setLoading(true);
     setErrorMsg("");
 
@@ -46,6 +48,7 @@ function LoginForm() {
       });
 
       const data = await res.json();
+      console.log(`⏱️ [WEB LOGIN] Response received in ${(performance.now() - t0).toFixed(1)}ms`);
       if (data.success && data.user) {
         if (!data.user.isOnboarded) {
           router.push("/onboarding");

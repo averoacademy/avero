@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getUserFromSession } from "@/lib/userAuth";
 import User from "@/models/User";
+import { optimizeAvatarImage } from "@/lib/avatar";
 
 import { isProUser } from "@/lib/subscription";
 
@@ -59,7 +60,9 @@ export async function PUT(request: Request) {
     if (studentType) dbUser.studentType = studentType.trim();
     if (university) dbUser.university = university.trim();
     if (gradYear) dbUser.gradYear = gradYear.trim();
-    if (typeof avatar === "string") dbUser.avatar = avatar;
+    if (typeof avatar === "string") {
+      dbUser.avatar = await optimizeAvatarImage(avatar);
+    }
 
     await dbUser.save();
 

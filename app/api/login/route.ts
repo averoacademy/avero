@@ -7,9 +7,11 @@ import { isProUser } from "@/lib/subscription";
 import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function POST(request: Request) {
+  const t0 = performance.now();
   try {
     const body = await request.json();
     const { email, password } = body;
+    console.log(`⏱️ [LOGIN START] POST /api/login for: ${email || "unknown"}`);
 
     if (!email) {
       return NextResponse.json(
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
       maxAge: 7 * 24 * 60 * 60,
     });
 
+    console.log(`✅ [LOGIN DONE] POST /api/login finished in ${(performance.now() - t0).toFixed(1)}ms`);
     return response;
   } catch (error: any) {
     console.error("Login API error:", error);

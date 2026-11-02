@@ -4,9 +4,11 @@ import { isProUser } from "@/lib/subscription";
 import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
+  const t0 = performance.now();
   try {
     const user = await getUserFromSession();
     if (!user) {
+      console.log(`⏱️ [API DONE] GET /api/user/me -> 401 in ${(performance.now() - t0).toFixed(1)}ms`);
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -15,6 +17,7 @@ export async function GET() {
 
     const streak = await getAndUpdateUserStreak(user._id);
 
+    console.log(`⏱️ [API DONE] GET /api/user/me -> 200 in ${(performance.now() - t0).toFixed(1)}ms`);
     return NextResponse.json({
       success: true,
       user: {

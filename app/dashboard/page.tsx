@@ -49,14 +49,18 @@ function StudentDashboardContent() {
   const [paymentBanner, setPaymentBanner] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const fetchDashboardData = async () => {
+    const t0 = performance.now();
+    console.log("📊 [WEB DASHBOARD] Loading started");
     setLoading(true);
     try {
       const [statsRes, userRes, flashcardsRes, scheduleRes] = await Promise.all([
         fetch("/api/user/stats"),
         fetch("/api/user/me"),
-        fetch("/api/user/flashcards?mode=due"),
+        fetch("/api/user/flashcards?mode=due&summary=true"),
         fetch("/api/user/schedule"),
       ]);
+
+      console.log(`🏁 [WEB DASHBOARD] Endpoints fetched in ${(performance.now() - t0).toFixed(1)}ms`);
 
       const statsData = await statsRes.json();
       const userData = await userRes.json();

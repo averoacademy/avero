@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserFromSession } from "@/lib/userAuth";
 import { connectToDatabase } from "@/lib/mongodb";
 import User from "@/models/User";
+import { optimizeAvatarImage } from "@/lib/avatar";
 
 export async function GET() {
   try {
@@ -51,10 +52,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const optimizedAvatar = await optimizeAvatarImage(avatar.trim());
+
     await connectToDatabase();
     const updatedUser = await User.findByIdAndUpdate(
       sessionUser._id,
-      { avatar: avatar.trim() },
+      { avatar: optimizedAvatar },
       { new: true }
     );
 

@@ -8,9 +8,11 @@ import { isProUser } from "@/lib/subscription";
 import { getAndUpdateUserStreak } from "@/lib/streak";
 
 export async function GET() {
+  const t0 = performance.now();
   try {
     const sessionUser = await getUserFromSession();
     if (!sessionUser) {
+      console.log(`⏱️ [API DONE] GET /api/user/schedule -> 401 in ${(performance.now() - t0).toFixed(1)}ms`);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,7 +24,7 @@ export async function GET() {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
 
-    const streak = await getAndUpdateUserStreak(sessionUser._id);
+    const streak = user.currentStreakDays ?? 0;
 
     // Calculate questions completed today
     const startOfToday = new Date();
@@ -31,7 +33,9 @@ export async function GET() {
     const todayAttempts = await ExamAttempt.find({
       userId: sessionUser._id,
       createdAt: { $gte: startOfToday },
-    });
+    })
+      .select("totalQuestions timeTakenSeconds")
+      .lean();
 
     let questionsCompletedToday = 0;
     let timeSpentTodaySeconds = 0;
@@ -40,6 +44,7 @@ export async function GET() {
       timeSpentTodaySeconds += att.timeTakenSeconds || 0;
     }
 
+    console.log(`⏱️ [API DONE] GET /api/user/schedule -> 200 in ${(performance.now() - t0).toFixed(1)}ms`);
     return NextResponse.json({
       success: true,
       schedule: {
@@ -65,6 +70,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const t0 = performance.now();
   try {
     const sessionUser = await getUserFromSession();
     if (!sessionUser) {
@@ -123,6 +129,7 @@ export async function PUT(request: Request) {
       }
     }
 
+    console.log(`⏱️ [API DONE] PUT /api/user/schedule -> 200 in ${(performance.now() - t0).toFixed(1)}ms`);
     return NextResponse.json({
       success: true,
       message: sendTestEmail
