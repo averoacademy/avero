@@ -15,6 +15,10 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = options.method || "GET";
+  const startTime = Date.now();
+  console.log(`⏱️ [HTTP START] ${method} ${endpoint}`);
+
   const token = await getToken();
 
   const url = endpoint.startsWith("http")
@@ -31,11 +35,21 @@ export async function apiRequest<T = any>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      credentials: "include",
+      headers,
+    });
+  } catch (netErr: any) {
+    const elapsed = Date.now() - startTime;
+    console.error(`❌ [HTTP NETWORK FAIL] ${method} ${endpoint} after ${elapsed}ms:`, netErr);
+    throw netErr;
+  }
+
+  const elapsed = Date.now() - startTime;
+  console.log(`⏱️ [HTTP DONE] ${method} ${endpoint} - Status ${response.status} (${elapsed}ms)`);
 
   const contentType = response.headers.get("content-type");
   let data: any = null;

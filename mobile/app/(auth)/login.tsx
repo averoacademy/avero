@@ -35,10 +35,16 @@ export default function LoginScreen() {
     setLoading(true);
     setErrorMessage(null);
 
+    const startLoginTime = Date.now();
+    console.log(`🚀 [LOGIN] Starting login for: ${email.trim()}`);
+
     try {
       await login(email.trim(), password);
+      console.log(`✅ [LOGIN] AuthContext login completed in ${Date.now() - startLoginTime}ms`);
       router.replace("/(tabs)/home");
+      console.log(`🧭 [LOGIN] Routed to home in ${Date.now() - startLoginTime}ms total`);
     } catch (err: any) {
+      console.error(`❌ [LOGIN FAILED] after ${Date.now() - startLoginTime}ms:`, err);
       setErrorMessage(err?.message || "Failed to sign in. Please verify your credentials.");
     } finally {
       setLoading(false);

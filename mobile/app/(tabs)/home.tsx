@@ -39,12 +39,17 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
+    const startDashTime = Date.now();
+    console.log("📊 [DASHBOARD] loadDashboardData started");
+
     try {
       const [statsRes, flashcardsRes, scheduleRes] = await Promise.all([
         api.get<any>("/api/user/stats").catch(() => null),
         api.get<any>("/api/user/flashcards?mode=due&summary=true").catch(() => null),
         api.get<any>("/api/user/schedule").catch(() => null),
       ]);
+
+      console.log(`📊 [DASHBOARD] All endpoints returned in ${Date.now() - startDashTime}ms`);
 
       const streakCount =
         scheduleRes?.schedule?.currentStreakDays ??
@@ -72,6 +77,7 @@ export default function HomeScreen() {
     } catch (err) {
       console.warn("Failed to load dashboard data:", err);
     } finally {
+      console.log(`🏁 [DASHBOARD] Total data & render ready in ${Date.now() - startDashTime}ms`);
       setLoading(false);
       setRefreshing(false);
     }
