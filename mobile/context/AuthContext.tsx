@@ -98,41 +98,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post("/api/login", { email, password });
     if (res?.token && res?.user) {
       await saveToken(res.token);
-      let userData: StudentUser = res.user;
+      const userData: StudentUser = {
+        ...res.user,
+        currentStreakDays: res.user.currentStreakDays ?? 0,
+      };
 
-      // Sync with /api/user/me and /api/user/schedule (which holds the live streak on production)
-      try {
-        const [meRes, schedRes] = await Promise.all([
-          api.get<{ success: boolean; user: StudentUser }>("/api/user/me", {
-            headers: { Authorization: `Bearer ${res.token}` },
-          }).catch(() => null),
-          api.get<{ success: boolean; schedule: { currentStreakDays?: number } }>("/api/user/schedule", {
-            headers: { Authorization: `Bearer ${res.token}` },
-          }).catch(() => null),
-        ]);
-
-        if (meRes?.success && meRes.user) {
-          userData = {
-            ...userData,
-            ...meRes.user,
-            avatar: meRes.user.avatar || userData.avatar || "",
-            currentStreakDays:
-              schedRes?.schedule?.currentStreakDays ??
-              meRes.user.currentStreakDays ??
-              userData.currentStreakDays ??
-              0,
-          };
-        } else if (schedRes?.schedule?.currentStreakDays !== undefined) {
-          userData.currentStreakDays = schedRes.schedule.currentStreakDays;
-        }
-      } catch (meErr) {
-        console.warn("Post-login sync from /api/user/me note:", meErr);
-      }
-
+      // Save credentials & state immediately so user is logged in instantly
       await saveUserProfile(userData);
       setToken(res.token);
       setUser(userData);
       registerForPushNotificationsAsync().catch(() => {});
+
+      // Asynchronous background sync (non-blocking)
+      (async () => {
+        try {
+          const [meRes, schedRes] = await Promise.all([
+            api.get<{ success: boolean; user: StudentUser }>("/api/user/me", {
+              headers: { Authorization: `Bearer ${res.token}` },
+            }).catch(() => null),
+            api.get<{ success: boolean; schedule: { currentStreakDays?: number } }>("/api/user/schedule", {
+              headers: { Authorization: `Bearer ${res.token}` },
+            }).catch(() => null),
+          ]);
+
+          if (meRes?.success && meRes.user) {
+            const fresh: StudentUser = {
+              ...userData,
+              ...meRes.user,
+              avatar: meRes.user.avatar || userData.avatar || "",
+              currentStreakDays:
+                schedRes?.schedule?.currentStreakDays ??
+                meRes.user.currentStreakDays ??
+                userData.currentStreakDays ??
+                0,
+            };
+            setUser((prev) => (prev ? { ...prev, ...fresh } : fresh));
+            await saveUserProfile(fresh);
+          } else if (schedRes?.schedule?.currentStreakDays !== undefined) {
+            const fresh: StudentUser = {
+              ...userData,
+              currentStreakDays: schedRes.schedule.currentStreakDays,
+            };
+            setUser((prev) => (prev ? { ...prev, ...fresh } : fresh));
+            await saveUserProfile(fresh);
+          }
+        } catch {}
+      })();
     } else {
       throw new Error(res?.error || "Login response did not return an authentication token.");
     }

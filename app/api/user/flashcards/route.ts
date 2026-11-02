@@ -34,6 +34,19 @@ export async function GET(request: Request) {
       filter.nextReviewDate = { $lte: new Date() };
     }
 
+    const summary = searchParams.get("summary") === "true";
+    if (summary) {
+      const dueCount = await FlashcardProgress.countDocuments({
+        userId: sessionUser._id,
+        nextReviewDate: { $lte: new Date() },
+      });
+      return NextResponse.json({
+        success: true,
+        cards: [],
+        dueCount,
+      });
+    }
+
     // Fetch flashcard progress items
     let cards = await FlashcardProgress.find(filter)
       .populate("courseId", "title categoryId")

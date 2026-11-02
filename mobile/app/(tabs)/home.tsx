@@ -42,9 +42,8 @@ export default function HomeScreen() {
     try {
       const [statsRes, flashcardsRes, scheduleRes] = await Promise.all([
         api.get<any>("/api/user/stats").catch(() => null),
-        api.get<any>("/api/user/flashcards?mode=due").catch(() => null),
+        api.get<any>("/api/user/flashcards?mode=due&summary=true").catch(() => null),
         api.get<any>("/api/user/schedule").catch(() => null),
-        refreshUser().catch(() => null),
       ]);
 
       const streakCount =
@@ -67,8 +66,8 @@ export default function HomeScreen() {
         setAnnouncements(statsRes.announcements || []);
       }
 
-      if (flashcardsRes?.cards) {
-        setFlashcardsDue(flashcardsRes.cards.length);
+      if (flashcardsRes) {
+        setFlashcardsDue(flashcardsRes.dueCount ?? flashcardsRes.cards?.length ?? 0);
       }
     } catch (err) {
       console.warn("Failed to load dashboard data:", err);
@@ -76,7 +75,7 @@ export default function HomeScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshUser, user?.currentStreakDays]);
+  }, [user?.currentStreakDays]);
 
   React.useEffect(() => {
     loadDashboardData();

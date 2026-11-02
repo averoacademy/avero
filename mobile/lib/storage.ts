@@ -6,8 +6,10 @@ const USER_KEY = "avero_user_profile";
 
 // In-memory fallback for environments where SecureStore is unavailable (e.g. web preview)
 const memoryStorage: Record<string, string> = {};
+let cachedToken: string | null = null;
 
 export async function saveToken(token: string): Promise<void> {
+  cachedToken = token;
   try {
     if (Platform.OS === "web") {
       localStorage.setItem(TOKEN_KEY, token);
@@ -20,17 +22,21 @@ export async function saveToken(token: string): Promise<void> {
 }
 
 export async function getToken(): Promise<string | null> {
+  if (cachedToken) return cachedToken;
   try {
     if (Platform.OS === "web") {
-      return localStorage.getItem(TOKEN_KEY);
+      cachedToken = localStorage.getItem(TOKEN_KEY);
+      return cachedToken;
     }
-    return await SecureStore.getItemAsync(TOKEN_KEY);
+    cachedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+    return cachedToken;
   } catch (error) {
     return memoryStorage[TOKEN_KEY] || null;
   }
 }
 
 export async function removeToken(): Promise<void> {
+  cachedToken = null;
   try {
     if (Platform.OS === "web") {
       localStorage.removeItem(TOKEN_KEY);
@@ -42,7 +48,10 @@ export async function removeToken(): Promise<void> {
   }
 }
 
+let cachedProfile: any | null = null;
+
 export async function saveUserProfile(user: any): Promise<void> {
+  cachedProfile = user;
   try {
     const serialized = JSON.stringify(user);
     if (Platform.OS === "web") {
@@ -56,6 +65,7 @@ export async function saveUserProfile(user: any): Promise<void> {
 }
 
 export async function getUserProfile(): Promise<any | null> {
+  if (cachedProfile) return cachedProfile;
   try {
     let raw: string | null = null;
     if (Platform.OS === "web") {
@@ -64,17 +74,21 @@ export async function getUserProfile(): Promise<any | null> {
       raw = await SecureStore.getItemAsync(USER_KEY);
     }
     if (!raw) raw = memoryStorage[USER_KEY] || null;
-    return raw ? JSON.parse(raw) : null;
+    cachedProfile = raw ? JSON.parse(raw) : null;
+    return cachedProfile;
   } catch {
     return null;
   }
 }
 
 export async function clearAuthStorage(): Promise<void> {
+  cachedToken = null;
+  cachedProfile = null;
   await Promise.all([removeToken(), removeUserProfile()]);
 }
 
 export async function removeUserProfile(): Promise<void> {
+  cachedProfile = null;
   try {
     if (Platform.OS === "web") {
       localStorage.removeItem(USER_KEY);

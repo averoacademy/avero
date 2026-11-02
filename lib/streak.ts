@@ -16,9 +16,12 @@ export async function calculateUserStreak(userId: mongoose.Types.ObjectId | stri
     await connectToDatabase();
     const uid = typeof userId === "string" ? new mongoose.Types.ObjectId(userId) : userId;
 
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
     const [attempts, flashcards] = await Promise.all([
-      ExamAttempt.find({ userId: uid }).select("createdAt").lean(),
-      FlashcardProgress.find({ userId: uid, lastReviewedAt: { $exists: true, $ne: null } })
+      ExamAttempt.find({ userId: uid, createdAt: { $gte: sixtyDaysAgo } }).select("createdAt").lean(),
+      FlashcardProgress.find({ userId: uid, lastReviewedAt: { $gte: sixtyDaysAgo } })
         .select("lastReviewedAt")
         .lean(),
     ]);

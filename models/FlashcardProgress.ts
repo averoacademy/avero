@@ -73,6 +73,10 @@ const FlashcardProgressSchema: Schema<IFlashcardProgress> = new Schema(
   }
 );
 
+FlashcardProgressSchema.index({ userId: 1, nextReviewDate: 1 });
+FlashcardProgressSchema.index({ userId: 1, lastReviewedAt: -1 });
+FlashcardProgressSchema.index({ userId: 1, courseId: 1 });
+
 if (mongoose.models && mongoose.models.FlashcardProgress) {
   delete mongoose.models.FlashcardProgress;
 }
