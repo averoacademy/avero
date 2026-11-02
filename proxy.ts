@@ -6,7 +6,10 @@ import { USER_COOKIE_NAME } from "@/lib/userAuth";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const adminToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  const userToken = request.cookies.get(USER_COOKIE_NAME)?.value;
+  const cookieUserToken = request.cookies.get(USER_COOKIE_NAME)?.value;
+  const authHeader = request.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+  const userToken = cookieUserToken || bearerToken;
 
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminLoginRoute = pathname === "/admin/login";
