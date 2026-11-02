@@ -50,7 +50,8 @@ export async function GET(request: Request) {
     // Fetch flashcard progress items
     let cards = await FlashcardProgress.find(filter)
       .populate("courseId", "title categoryId")
-      .sort({ nextReviewDate: 1 });
+      .sort({ nextReviewDate: 1 })
+      .limit(50);
 
     // If no flashcards exist yet for user, generate initial flashcards from published courses
     if (cards.length === 0 && !courseId) {

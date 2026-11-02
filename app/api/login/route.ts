@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     user.currentSessionId = sessionId;
     await user.save();
 
-    const streak = await getAndUpdateUserStreak(user._id);
+    const streak = user.currentStreakDays || 0;
 
     const token = signUserToken({
       userId: (user._id as any).toString(),

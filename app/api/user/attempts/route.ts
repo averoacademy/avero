@@ -15,8 +15,10 @@ export async function GET(request: Request) {
     await connectToDatabase();
 
     const attempts = await ExamAttempt.find({ userId: user._id })
+      .select("-answers")
       .populate("courseId", "title categoryId thumbnail level passingScorePercentage")
       .sort({ createdAt: -1 })
+      .limit(50)
       .lean();
 
     return NextResponse.json({

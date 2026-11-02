@@ -20,6 +20,7 @@ export async function GET() {
 
     // Fetch user exam attempts
     const attempts = await ExamAttempt.find({ userId: user._id })
+      .select("-answers")
       .sort({ createdAt: -1 })
       .populate("courseId", "title categoryId thumbnail level")
       .lean();
@@ -38,7 +39,7 @@ export async function GET() {
 
     // Fetch published courses for recommendations
     const recommendedCourses = await Course.find({ status: "Published" })
-      .select("title slug description level timeLimitMinutes passingScorePercentage questions modules thumbnail categoryId")
+      .select("title slug description level timeLimitMinutes passingScorePercentage thumbnail categoryId questions._id")
       .populate("categoryId", "name slug icon")
       .limit(4)
       .lean();

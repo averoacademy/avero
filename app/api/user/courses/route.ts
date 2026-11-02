@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     }
 
     const courses = await Course.find(query)
+      .select("title slug description level timeLimitMinutes passingScorePercentage thumbnail categoryId subcategoryName status isFreeAccess freeQuestionLimit createdAt questions._id")
       .populate("categoryId", "name slug icon")
       .sort({ createdAt: -1 })
       .lean();
