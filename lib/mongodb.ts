@@ -21,7 +21,7 @@ try {
 }
 
 // Intercept dns.lookup to serve MongoDB hostnames directly via IPv4 cache/resolver
-const origLookup = dns.lookup;
+const origLookup: any = dns.lookup;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (dns as any).lookup = function (hostname: string, options: any, callback: any) {
   if (typeof options === "function") {
