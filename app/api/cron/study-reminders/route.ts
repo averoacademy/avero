@@ -82,14 +82,28 @@ export async function GET(request: Request) {
       }
     }
 
-    // Query active users with email or push reminders enabled
-    const users = await User.find({
-      isSuspended: { $ne: true },
-      $or: [
-        { emailRemindersEnabled: { $ne: false } },
-        { pushRemindersEnabled: { $ne: false } },
-      ],
-    });
+    // Check if daily study reminder emails are explicitly enabled via environment variable.
+    // Kept FALSE by default to protect Resend free tier quota (100 emails/day) for critical transactional emails (signups, password resets).
+    const allowReminderEmails = process.env.ENABLE_DAILY_STUDY_REMINDER_EMAILS === "true";
+
+    // Query active users
+    // If reminder emails are disabled, only query users who have push notifications configured
+    const queryConditions: any = { isSuspended: { $ne: true } };
+
+    if (allowReminderEmails) {
+      // If reminder emails are explicitly enabled, strictly limit them to Pro members
+      queryConditions.subscriptionPlan = "pro";
+      queryConditions.$or = [
+        { emailRemindersEnabled: true },
+        { pushRemindersEnabled: { $ne: false }, expoPushToken: { $exists: true, $ne: "" } },
+      ];
+    } else {
+      // Free quota protection: only process push notifications (free and unlimited)
+      queryConditions.pushRemindersEnabled = { $ne: false };
+      queryConditions.expoPushToken = { $exists: true, $ne: "" };
+    }
+
+    const users = await User.find(queryConditions);
 
     const dispatchedEmail: string[] = [];
     const dispatchedPush: string[] = [];
@@ -122,8 +136,8 @@ export async function GET(request: Request) {
         const shouldSendMain = !hasBeenRemindedToday;
 
         if (shouldSendMain || isAdvanceWindow) {
-          // 1. Dispatch Email if enabled
-          if (user.emailRemindersEnabled !== false) {
+          // 1. Dispatch Email only if globally enabled, user is Pro, and user enabled it
+          if (allowReminderEmails && user.subscriptionPlan === "pro" && user.emailRemindersEnabled === true) {
             try {
               await sendDailyStudyReminderEmail({
                 to: user.email,
@@ -139,7 +153,32 @@ export async function GET(request: Request) {
             }
           }
 
-          // 2. Mark reminder dates on user model
+          // 2. Dispatch Mobile Push Notification if registered
+          if (user.expoPushToken && user.pushRemindersEnabled !== false) {
+            try {
+              const firstName = user.fullName ? user.fullName.split(" ")[0] : "Candidate";
+              const pushPayload = {
+                to: user.expoPushToken,
+                sound: "default",
+                title: "🔥 AVERO Study Reminder",
+                body: `Time for practice, Nurse ${firstName}! Meet your daily goal of ${goal} questions to keep your active retention streak alive.`,
+                data: { url: "/(tabs)/home" },
+              };
+              await fetch("https://exp.host/--/api/v2/push/send", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+                body: JSON.stringify(pushPayload),
+              });
+              dispatchedPush.push(user.email);
+            } catch (pushErr) {
+              console.error(`Failed to send mobile push notification to ${user.email}:`, pushErr);
+            }
+          }
+
+          // 3. Mark reminder dates on user model
           if (isAdvanceWindow) {
             user.lastAdvanceReminderSentDate = now;
           } else {
@@ -156,6 +195,8 @@ export async function GET(request: Request) {
       activeUsersCount: users.length,
       dispatchedEmailCount: dispatchedEmail.length,
       dispatchedEmails: dispatchedEmail,
+      dispatchedPushCount: dispatchedPush.length,
+      dispatchedPush,
       expiringSoonEmailsSent,
       expiredEmailsSent,
     });

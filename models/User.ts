@@ -31,6 +31,7 @@ export interface IUser extends Document {
   lastExpiredNoticeSentDate?: Date;
   currentSessionId?: string;
   expoPushToken?: string;
+  avatar?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,7 +93,7 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     emailRemindersEnabled: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     pushRemindersEnabled: {
       type: Boolean,
@@ -155,6 +156,10 @@ const UserSchema: Schema<IUser> = new Schema(
       default: "",
     },
     expoPushToken: {
+      type: String,
+      default: "",
+    },
+    avatar: {
       type: String,
       default: "",
     },

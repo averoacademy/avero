@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "AVERO ACADEMY",
+    "slug": "avero-academy",
+    "scheme": "avero",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.avero.academy"
+    },
+    "android": {
+      "package": "com.avero.academy",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Avero Academy to access your photo library to select a profile picture."
+        }
+      ]
+    ]
+  }
+}

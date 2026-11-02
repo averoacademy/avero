@@ -24,8 +24,8 @@ export async function POST(request: Request) {
 
     const priceNaira =
       plan === "pro_annual"
-        ? settings.annualPriceNaira || 50000
-        : settings.monthlyPriceNaira || 5000;
+        ? (typeof settings.annualPriceNaira === "number" ? settings.annualPriceNaira : 20000)
+        : (typeof settings.monthlyPriceNaira === "number" ? settings.monthlyPriceNaira : 2000);
 
     const planCode =
       plan === "pro_annual"

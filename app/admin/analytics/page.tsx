@@ -26,6 +26,8 @@ export default function CandidateAnalyticsPage() {
       const data = await res.json();
       if (data.success) {
         setTelemetry(data.telemetry);
+      } else {
+        console.error("Analytics fetch error:", data.error);
       }
     } catch (err) {
       console.error("Failed to load candidate analytics", err);
@@ -200,7 +202,7 @@ export default function CandidateAnalyticsPage() {
                             <div className="text-[11px] font-normal text-slate-500">{att.userId?.email || "—"}</div>
                           </td>
                           <td className="py-3 px-2 text-slate-700 font-semibold">
-                            {att.courseId?.title || "Exam Bank"}
+                            {att.courseId?.title || att.paperTitle || "Exam Bank"}
                           </td>
                           <td className="py-3 px-2 font-bold text-slate-900">
                             {att.score}% ({att.correctCount}/{att.totalQuestions})

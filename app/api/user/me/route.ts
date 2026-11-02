@@ -27,6 +27,7 @@ export async function GET() {
         subscriptionStatus: user.subscriptionStatus || null,
         subscriptionExpiresAt: user.subscriptionExpiresAt || null,
         isPro: isProUser(user),
+        avatar: user.avatar || "",
         createdAt: user.createdAt,
       },
     });

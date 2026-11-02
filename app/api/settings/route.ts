@@ -24,8 +24,8 @@ export async function GET() {
         address: settings.address,
         copyrightText: settings.copyrightText,
         isSubscriptionEnabled: settings.isSubscriptionEnabled !== false,
-        monthlyPriceNaira: settings.monthlyPriceNaira || 5000,
-        annualPriceNaira: settings.annualPriceNaira || 50000,
+        monthlyPriceNaira: typeof settings.monthlyPriceNaira === "number" ? settings.monthlyPriceNaira : 2000,
+        annualPriceNaira: typeof settings.annualPriceNaira === "number" ? settings.annualPriceNaira : 20000,
       },
     });
   } catch (error: any) {
@@ -50,8 +50,8 @@ export async function GET() {
         address: "",
         copyrightText: "AVERO ACADEMY Technologies Inc. All rights reserved.",
         isSubscriptionEnabled: true,
-        monthlyPriceNaira: 5000,
-        annualPriceNaira: 50000,
+        monthlyPriceNaira: 2000,
+        annualPriceNaira: 20000,
       },
     });
   }

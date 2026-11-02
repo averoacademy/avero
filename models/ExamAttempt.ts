@@ -110,6 +110,10 @@ const ExamAttemptSchema: Schema<IExamAttempt> = new Schema(
   }
 );
 
+ExamAttemptSchema.index({ createdAt: -1 });
+ExamAttemptSchema.index({ userId: 1, createdAt: -1 });
+ExamAttemptSchema.index({ passed: 1 });
+
 if (mongoose.models && mongoose.models.ExamAttempt) {
   delete mongoose.models.ExamAttempt;
 }

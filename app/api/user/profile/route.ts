@@ -23,6 +23,7 @@ export async function GET() {
         university: user.university,
         gradYear: user.gradYear,
         isOnboarded: user.isOnboarded,
+        avatar: user.avatar || "",
         isPro: isProUser(user),
       },
     });
@@ -43,7 +44,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { fullName, studentType, university, gradYear } = body;
+    const { fullName, studentType, university, gradYear, avatar } = body;
 
     await connectToDatabase();
 
@@ -56,6 +57,7 @@ export async function PUT(request: Request) {
     if (studentType) dbUser.studentType = studentType.trim();
     if (university) dbUser.university = university.trim();
     if (gradYear) dbUser.gradYear = gradYear.trim();
+    if (typeof avatar === "string") dbUser.avatar = avatar;
 
     await dbUser.save();
 
@@ -71,6 +73,7 @@ export async function PUT(request: Request) {
         university: dbUser.university,
         gradYear: dbUser.gradYear,
         isOnboarded: dbUser.isOnboarded,
+        avatar: dbUser.avatar || "",
       },
     });
   } catch (error: any) {
